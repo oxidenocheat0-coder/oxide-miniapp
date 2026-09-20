@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>Смотри рекламу — получай приватку</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--tg-theme-bg-color, #1a1a1a);
+            color: var(--tg-theme-text-color, #fff);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        h1 { font-size: 22px; text-align: center; margin-bottom: 8px; }
+        .subtitle { text-align: center; opacity: 0.7; font-size: 14px; margin-bottom: 24px; }
+        .stats {
+            background: var(--tg-theme-secondary-bg-color, #2a2a2a);
+            padding: 20px; border-radius: 16px; margin-bottom: 20px; text-align: center;
+        }
+        .stats .big { font-size: 48px; font-weight: 700; color: #ffb800; line-height: 1; }
+        .stats .label { font-size: 14px; opacity: 0.8; margin-top: 8px; }
+        .progress {
+            width: 100%; height: 12px;
+            background: var(--tg-theme-secondary-bg-color, #2a2a2a);
+            border-radius: 6px; overflow: hidden; margin-bottom: 20px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ffb800, #ff6b00);
+            border-radius: 6px; transition: width 0.4s; width: 0%;
+        }
+        .progress-text { text-align: center; font-size: 14px; opacity: 0.8; margin-bottom: 24px; }
+        button {
+            background: var(--tg-theme-button-color, #2481cc);
+            color: var(--tg-theme-button-text-color, #fff);
+            border: none; padding: 18px; border-radius: 14px;
+            font-size: 18px; font-weight: 600; width: 100%; cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s; margin-bottom: 12px;
+        }
+        button:active { transform: scale(0.97); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .bonus { background: linear-gradient(135deg, #ffb800, #ff6b00); color: #000; font-weight: 700; }
+        .info {
+            font-size: 13px; opacity: 0.6; text-align: center;
+            margin-top: auto; padding-top: 20px; line-height: 1.5;
+        }
+        .toast {
+            position: fixed; bottom: 20px; left: 20px; right: 20px;
+            background: #10b981; color: #fff; padding: 16px;
+            border-radius: 12px; text-align: center; font-weight: 600;
+            opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1000;
+        }
+        .toast.show { opacity: 1; }
+        .toast.error { background: #ef4444; }
+    </style>
+</head>
+<body>
+    <h1>📺 Смотри рекламу</h1>
+    <div class="subtitle">20 просмотров = 1 час приватки</div>
+
+    <div class="stats">
+        <div class="big" id="counter">0</div>
+        <div class="label">просмотров из 20</div>
+    </div>
+
+    <div class="progress">
+        <div class="progress-fill" id="progress"></div>
+    </div>
+    <div class="progress-text" id="progress-text">Прогресс: 0%</div>
+
+    <button id="watchBtn" class="bonus">▶ Смотреть рекламу</button>
+
+    <div class="info">
+        Всего просмотрено: <span id="total">0</span> раз<br>
+        Каждые 20 просмотров дают 1 час доступа в приватку.
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ===== НАСТРОЙКИ =====
+        const SUPABASE_URL = "https://kaqqccigjriolayxhwgj.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_XshjisbVN_4_PJ8MpOwCCA_42NBY_Hz";
+        const ADSGRAM_BLOCK_ID = "ТВОЙ_BLOCK_ID_ИЗ_ADSGRAM";
+        // =====================
+
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
+        const user = tg.initDataUnsafe.user;
+        if (!user) {
+            document.body.innerHTML = "<h2 style='text-align:center;padding:40px 20px;'>Откройте приложение через Telegram-бота</h2>";
+            throw new Error("No user");
+        }
+
+        const userId = user.id;
+        let counter = 0;
+        let totalWatched = 0;
+        let adController = null;
+        let adInProgress = false;
+
+        try {
+            if (ADSGRAM_BLOCK_ID && ADSGRAM_BLOCK_ID !== "ТВОЙ_BLOCK_ID_ИЗ_ADSGRAM") {
+                adController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
+            }
+        } catch (e) { console.error("Adsgram init error:", e); }
+
+        function showToast(text, isError = false) {
+            const t = document.getElementById("toast");
+            t.textContent = text;
+            t.className = "toast" + (isError ? " error" : "");
+            t.classList.add("show");
+            setTimeout(() => t.classList.remove("show"), 2500);
+        }
+
+        function updateUI() {
+            document.getElementById("counter").textContent = counter;
+            document.getElementById("total").textContent = totalWatched;
+            const pct = Math.min(100, (counter / 20) * 100);
+            document.getElementById("progress").style.width = pct + "%";
+            document.getElementById("progress-text").textContent = `Прогресс: ${Math.round(pct)}%`;
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_ad_stats`, {
+                    method: "POST",
+                    headers: {
+                        "apikey": SUPABASE_ANON_KEY,
+                        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ p_user_id: userId })
+                });
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    counter = data[0].counter || 0;
+                    totalWatched = data[0].total_watched || 0;
+                }
+                updateUI();
+            } catch (e) { console.error("Load stats error:", e); }
+        }
+
+        async function registerWatch() {
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/add_ad_watch`, {
+                    method: "POST",
+                    headers: {
+                        "apikey": SUPABASE_ANON_KEY,
+                        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ p_user_id: userId })
+                });
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    const row = data[0];
+                    counter = row.counter;
+                    totalWatched = row.total_watched;
+                    updateUI();
+                    if (row.hours_added && row.hours_added > 0) {
+                        showToast("🎉 +1 час приватки начислен!");
+                        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
+                    } else {
+                        showToast(`✅ Просмотр засчитан! Осталось ${20 - counter}`);
+                    }
+                }
+            } catch (e) {
+                console.error("Register watch error:", e);
+                showToast("Ошибка соединения", true);
+            }
+        }
+
+        document.getElementById("watchBtn").addEventListener("click", async () => {
+            if (adInProgress) return;
+            if (!adController) {
+                showToast("Реклама пока не настроена", true);
+                return;
+            }
+            adInProgress = true;
+            const btn = document.getElementById("watchBtn");
+            btn.disabled = true;
+            btn.textContent = "⏳ Загрузка рекламы...";
+            try {
+                await adController.show();
+                await registerWatch();
+            } catch (e) {
+                if (e && e.done === false) showToast("Реклама не досмотрена", true);
+                else showToast("Реклама недоступна, попробуйте позже", true);
+            } finally {
+                adInProgress = false;
+                btn.disabled = false;
+                btn.textContent = "▶ Смотреть рекламу";
+            }
+        });
+
+        loadStats();
+    </script>
+</body>
+</html>
