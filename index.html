@@ -87,7 +87,7 @@
         // ===== НАСТРОЙКИ =====
         const SUPABASE_URL = "https://kaqqccigjriolayxhwgj.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_XshjisbVN_4_PJ8MpOwCCA_42NBY_Hz";
-        const ADSGRAM_BLOCK_ID = "48861";
+        const ADSGRAM_BLOCK_ID = "int-48861";
         // =====================
 
         const tg = window.Telegram.WebApp;
@@ -107,9 +107,7 @@
         let adInProgress = false;
 
         try {
-            if (ADSGRAM_BLOCK_ID && ADSGRAM_BLOCK_ID !== "ТВОЙ_BLOCK_ID_ИЗ_ADSGRAM") {
-                adController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
-            }
+            adController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
         } catch (e) { console.error("Adsgram init error:", e); }
 
         function showToast(text, isError = false) {
@@ -192,6 +190,7 @@
                 await adController.show();
                 await registerWatch();
             } catch (e) {
+                console.error("Ad error:", e);
                 if (e && e.done === false) showToast("Реклама не досмотрена", true);
                 else showToast("Реклама недоступна, попробуйте позже", true);
             } finally {
