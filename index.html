@@ -50,6 +50,21 @@
             font-size: 13px; opacity: 0.6; text-align: center;
             margin-top: auto; padding-top: 20px; line-height: 1.5;
         }
+        .ad-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            padding: 14px;
+            background: var(--tg-theme-secondary-bg-color, #2a2a2a);
+            border-radius: 12px;
+            color: var(--tg-theme-link-color, #ffb800);
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            letter-spacing: 0.5px;
+            transition: opacity 0.2s;
+        }
+        .ad-link:active { opacity: 0.6; }
         .toast {
             position: fixed; bottom: 20px; left: 20px; right: 20px;
             background: #10b981; color: #fff; padding: 16px;
@@ -62,11 +77,11 @@
 </head>
 <body>
     <h1>📺 Смотри рекламу</h1>
-    <div class="subtitle">20 просмотров = 1 час приватки</div>
+    <div class="subtitle">30 просмотров = 1 час приватки</div>
 
     <div class="stats">
         <div class="big" id="counter">0</div>
-        <div class="label">просмотров из 20</div>
+        <div class="label">просмотров из 30</div>
     </div>
 
     <div class="progress">
@@ -78,8 +93,10 @@
 
     <div class="info">
         Всего просмотрено: <span id="total">0</span> раз<br>
-        Каждые 20 просмотров дают 1 час доступа в приватку.
+        Каждые 30 просмотров дают 1 час доступа в приватку.
     </div>
+
+    <a href="https://t.me/HA3NDAHIE" id="adLink" class="ad-link">ТУТ МОЖЕТ БЫТЬ ВАША РЕКЛАМА</a>
 
     <div class="toast" id="toast"></div>
 
@@ -88,6 +105,7 @@
         const SUPABASE_URL = "https://kaqqccigjriolayxhwgj.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_XshjisbVN_4_PJ8MpOwCCA_42NBY_Hz";
         const MONETAG_ZONE_ID = "11852584";
+        const ADS_PER_HOUR = 30;
         // =====================
 
         const tg = window.Telegram.WebApp;
@@ -116,7 +134,7 @@
         function updateUI() {
             document.getElementById("counter").textContent = counter;
             document.getElementById("total").textContent = totalWatched;
-            const pct = Math.min(100, (counter / 20) * 100);
+            const pct = Math.min(100, (counter / ADS_PER_HOUR) * 100);
             document.getElementById("progress").style.width = pct + "%";
             document.getElementById("progress-text").textContent = `Прогресс: ${Math.round(pct)}%`;
         }
@@ -162,7 +180,7 @@
                         showToast("🎉 +1 час приватки начислен!");
                         if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
                     } else {
-                        showToast(`✅ Просмотр засчитан! Осталось ${20 - counter}`);
+                        showToast(`✅ Просмотр засчитан! Осталось ${ADS_PER_HOUR - counter}`);
                     }
                 }
             } catch (e) {
@@ -191,6 +209,15 @@
                 adInProgress = false;
                 btn.disabled = false;
                 btn.textContent = "▶ Смотреть рекламу";
+            }
+        });
+
+        document.getElementById("adLink").addEventListener("click", (e) => {
+            e.preventDefault();
+            if (tg.openTelegramLink) {
+                tg.openTelegramLink("https://t.me/HA3NDAHIE");
+            } else {
+                window.open("https://t.me/HA3NDAHIE", "_blank");
             }
         });
 
