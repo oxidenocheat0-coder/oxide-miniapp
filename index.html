@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
     <title>Смотри рекламу — получай приватку</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+    <script src="//libtl.com/sdk.js" data-zone="11852584" data-sdk="show_11852584"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -87,7 +87,7 @@
         // ===== НАСТРОЙКИ =====
         const SUPABASE_URL = "https://kaqqccigjriolayxhwgj.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_XshjisbVN_4_PJ8MpOwCCA_42NBY_Hz";
-        const ADSGRAM_BLOCK_ID = "int-48861";
+        const MONETAG_ZONE_ID = "11852584";
         // =====================
 
         const tg = window.Telegram.WebApp;
@@ -103,12 +103,7 @@
         const userId = user.id;
         let counter = 0;
         let totalWatched = 0;
-        let adController = null;
         let adInProgress = false;
-
-        try {
-            adController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
-        } catch (e) { console.error("Adsgram init error:", e); }
 
         function showToast(text, isError = false) {
             const t = document.getElementById("toast");
@@ -178,8 +173,8 @@
 
         document.getElementById("watchBtn").addEventListener("click", async () => {
             if (adInProgress) return;
-            if (!adController) {
-                showToast("Реклама пока не настроена", true);
+            if (typeof show_11852584 !== "function") {
+                showToast("Реклама ещё загружается, подожди пару секунд", true);
                 return;
             }
             adInProgress = true;
@@ -187,12 +182,11 @@
             btn.disabled = true;
             btn.textContent = "⏳ Загрузка рекламы...";
             try {
-                await adController.show();
+                await show_11852584("pop");
                 await registerWatch();
             } catch (e) {
                 console.error("Ad error:", e);
-                if (e && e.done === false) showToast("Реклама не досмотрена", true);
-                else showToast("Реклама недоступна, попробуйте позже", true);
+                showToast("Реклама не досмотрена", true);
             } finally {
                 adInProgress = false;
                 btn.disabled = false;
